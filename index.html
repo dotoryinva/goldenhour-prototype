@@ -1,0 +1,2642 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Golden Hour — Drift Prototype v0.4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@300;400&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --warm: rgba(255, 235, 210, 0.92);
+      --warm-dim: rgba(255, 220, 190, 0.55);
+      --accent: #ffb070;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #1a0d12;
+      font-family: 'IBM Plex Mono', monospace;
+      height: 100%;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #title {
+      position: fixed;
+      top: 24px;
+      left: 28px;
+      color: var(--warm);
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 26px;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      line-height: 1;
+      text-shadow: 0 2px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    #title .sub {
+      display: block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-style: normal;
+      font-size: 9.5px;
+      letter-spacing: 3px;
+      opacity: 0.55;
+      margin-top: 6px;
+      text-transform: uppercase;
+    }
+
+    #hud {
+      position: fixed;
+      bottom: 28px;
+      left: 28px;
+      color: var(--warm);
+      pointer-events: none;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+    }
+
+    #hud .row {
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+    }
+
+    .speed {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 300;
+      font-size: 56px;
+      letter-spacing: -1px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .unit {
+      font-size: 10px;
+      letter-spacing: 3px;
+      opacity: 0.5;
+      margin-left: 8px;
+      text-transform: uppercase;
+    }
+
+    .gear {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 22px;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-left: 22px;
+      opacity: 0.92;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #rpmTrack {
+      width: 280px;
+      height: 8px;
+      background: rgba(255, 230, 200, 0.10);
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: visible;
+      position: relative;
+    }
+
+    #rpmBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ffd5a0, #ffb070);
+      border-radius: 2px;
+      transition: width 0.04s linear, background 0.2s ease;
+      box-shadow: 0 0 12px rgba(255, 176, 112, 0.25);
+    }
+
+    #upshiftTick {
+      position: absolute;
+      top: -3px;
+      width: 2px;
+      height: 14px;
+      background: rgba(255, 230, 200, 0.55);
+      pointer-events: none;
+      border-radius: 1px;
+    }
+
+    #rpmTrack .redline {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 12%;
+      height: 100%;
+      background: rgba(255, 80, 80, 0.18);
+      border-radius: 0 2px 2px 0;
+      pointer-events: none;
+    }
+
+    #shiftFlash {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      color: var(--accent);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 32px;
+      font-weight: 300;
+      letter-spacing: 6px;
+      opacity: 0;
+      pointer-events: none;
+      text-shadow: 0 0 30px rgba(255, 176, 112, 0.7), 0 2px 12px rgba(0, 0, 0, 0.4);
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    #shiftFlash.up {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #shiftFlash.down {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      color: #ffc380;
+    }
+
+    .gear.shifting {
+      color: #fff4d0;
+      text-shadow: 0 0 18px rgba(255, 220, 180, 0.9);
+    }
+
+    #viewMode {
+      margin-top: 10px;
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: var(--warm-dim);
+      text-transform: uppercase;
+      transition: color 0.3s ease;
+    }
+
+    #viewMode.drift {
+      color: var(--accent);
+    }
+
+    #drift {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--accent);
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 42px;
+      letter-spacing: 4px;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+      text-shadow: 0 0 30px rgba(255, 176, 112, 0.55), 0 2px 12px rgba(0, 0, 0, 0.4);
+      text-align: center;
+    }
+
+    #drift.active {
+      opacity: 1;
+    }
+
+    #drift .timer {
+      display: block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-style: normal;
+      font-size: 11px;
+      letter-spacing: 4px;
+      opacity: 0.65;
+      margin-top: 8px;
+      color: var(--warm);
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      color: var(--warm-dim);
+      font-size: 10.5px;
+      letter-spacing: 1.2px;
+      line-height: 2;
+      text-align: right;
+      pointer-events: none;
+      text-transform: uppercase;
+    }
+
+    #controls kbd {
+      font-family: 'IBM Plex Mono', monospace;
+      background: rgba(255, 230, 200, 0.08);
+      border: 1px solid rgba(255, 230, 200, 0.18);
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-right: 6px;
+      font-size: 10px;
+      color: var(--warm);
+    }
+
+    #vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(40, 15, 25, 0.45) 100%);
+      z-index: 1;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a0d12;
+      color: var(--warm);
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 22px;
+      letter-spacing: 1px;
+      transition: opacity 0.6s ease;
+      z-index: 100;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #respawnFlash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(255, 220, 180, 0.35), rgba(40, 15, 25, 0.0) 60%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      z-index: 50;
+    }
+
+    #respawnFlash.active {
+      opacity: 1;
+    }
+
+    #respawnLabel {
+      position: fixed;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--warm);
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 26px;
+      letter-spacing: 2px;
+      opacity: 0;
+      pointer-events: none;
+      text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.18s ease;
+      z-index: 51;
+    }
+
+    #respawnLabel.active {
+      opacity: 0.9;
+    }
+
+    /* === CAR SELECT MENU === */
+    #menu {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(26, 13, 18, 0.92), rgba(40, 20, 30, 0.92));
+      backdrop-filter: blur(12px);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+
+    #menu.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #menuTitle {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 64px;
+      color: var(--warm);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      text-shadow: 0 4px 30px rgba(255, 180, 130, 0.3);
+    }
+
+    #menuSub {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 5px;
+      color: var(--warm-dim);
+      text-transform: uppercase;
+      margin-bottom: 56px;
+    }
+
+    #carRow {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 44px;
+      max-width: 1100px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .carCard {
+      width: 180px;
+      background: rgba(255, 230, 200, 0.05);
+      border: 1px solid rgba(255, 230, 200, 0.12);
+      border-radius: 6px;
+      padding: 18px 16px;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+      color: var(--warm);
+      text-align: left;
+      font-family: 'IBM Plex Mono', monospace;
+      user-select: none;
+    }
+
+    .carCard:hover {
+      background: rgba(255, 230, 200, 0.08);
+      border-color: rgba(255, 230, 200, 0.25);
+      transform: translateY(-3px);
+    }
+
+    .carCard.selected {
+      border-color: var(--accent);
+      background: rgba(255, 176, 112, 0.10);
+      box-shadow: 0 0 30px rgba(255, 176, 112, 0.15);
+    }
+
+    .carSwatch {
+      width: 100%;
+      height: 60px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .carSwatch::after {
+      /* Subtle highlight stripe to fake a paint sheen */
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, transparent 40%, transparent 60%, rgba(0, 0, 0, 0.18) 100%);
+    }
+
+    .carName {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .carInspired {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--warm-dim);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .carTagline {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .carStats {
+      font-size: 10px;
+      color: var(--warm-dim);
+      line-height: 1.7;
+    }
+
+    .carStat {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .carStat .val {
+      color: var(--warm);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #menuStart {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 5px;
+      color: var(--warm);
+      background: transparent;
+      border: 1px solid rgba(255, 230, 200, 0.3);
+      padding: 14px 36px;
+      border-radius: 3px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s ease;
+      font-weight: 300;
+    }
+
+    #menuStart:hover {
+      background: rgba(255, 176, 112, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #menuHint {
+      margin-top: 22px;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--warm-dim);
+      text-transform: uppercase;
+    }
+
+    #audioHint {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--warm);
+      opacity: 0;
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 18px;
+      letter-spacing: 1px;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+    }
+
+    #audioHint.show {
+      opacity: 0.85;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="loading">golden hour</div>
+  <div id="audioHint">press any key to begin</div>
+
+  <div id="menu">
+    <div id="menuTitle">Golden Hour</div>
+    <div id="menuSub">choose your machine</div>
+    <div id="carRow"></div>
+    <button id="menuStart">drive</button>
+    <div id="menuHint">← → to browse · enter to start</div>
+  </div>
+
+  <div id="title">
+    Golden Hour
+    <span class="sub">drift · prototype v0.4</span>
+  </div>
+
+  <div id="hud">
+    <div class="row">
+      <span class="speed" id="speed">0</span><span class="unit">km/h</span>
+      <span class="gear" id="gear">G1</span>
+    </div>
+    <div id="rpmTrack">
+      <div id="rpmBar"></div>
+      <div id="upshiftTick"></div>
+      <div class="redline"></div>
+    </div>
+    <div id="viewMode">chase cam</div>
+  </div>
+
+  <div id="shiftFlash">▲ UP</div>
+
+  <div id="drift">
+    DRIFT
+    <span class="timer" id="combo">0.0s</span>
+  </div>
+
+  <div id="controls">
+    <div><kbd>W</kbd> / <kbd>↑</kbd> accelerate</div>
+    <div><kbd>S</kbd> / <kbd>↓</kbd> brake / reverse</div>
+    <div><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> steer</div>
+    <div><kbd>SPACE</kbd> handbrake</div>
+    <div><kbd>C</kbd> change camera</div>
+    <div><kbd>R</kbd> reset</div>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="respawnFlash"></div>
+  <div id="respawnLabel">returning to road</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+
+  <script>
+    // ====================================================================
+    //  GOLDEN HOUR v0.4
+    //  + Infinite chunked road (slowroads.io-style)
+    //  + Road-snap drift assist (car stays on the road during slides)
+    //  + Reworked audio (proper engine, audible drift skid)
+    //  + Tunnels removed; mountains remain as distant ring
+    // ====================================================================
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.1, 3000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    document.body.appendChild(renderer.domElement);
+
+    // ====================================================================
+    //  POST: radial motion blur
+    // ====================================================================
+    const RadialBlurShader = {
+      uniforms: { tDiffuse: { value: null }, blurStrength: { value: 0.0 } },
+      vertexShader: `
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+      fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float blurStrength;
+    varying vec2 vUv;
+    void main(){
+      vec2 center = vec2(0.5, 0.5);
+      vec2 dir = vUv - center;
+      float dist = length(dir);
+      float strength = blurStrength * smoothstep(0.05, 0.7, dist);
+      vec4 sum = vec4(0.0);
+      float total = 0.0;
+      const int SAMPLES = 12;
+      for (int i = 0; i < SAMPLES; i++) {
+        float t = float(i) / float(SAMPLES - 1) - 0.5;
+        float off = t * strength * 0.10;
+        vec2 uv = vUv - dir * off;
+        float w = 1.0 - abs(t) * 1.2;
+        sum += texture2D(tDiffuse, uv) * w;
+        total += w;
+      }
+      gl_FragColor = sum / total;
+    }`,
+    };
+    const composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    const radialBlurPass = new THREE.ShaderPass(RadialBlurShader);
+    composer.addPass(radialBlurPass);
+
+    // ====================================================================
+    //  SKY / SUN / FOG
+    // ====================================================================
+    scene.fog = new THREE.FogExp2(0xff9560, 0.0042);
+
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x3a1f3f) },
+        midColor: { value: new THREE.Color(0xff6a3a) },
+        horizonColor: { value: new THREE.Color(0xffc580) },
+        groundColor: { value: new THREE.Color(0x6a2535) },
+      },
+      vertexShader: `
+    varying vec3 vWorldPos;
+    void main(){
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorldPos = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }`,
+      fragmentShader: `
+    uniform vec3 topColor, midColor, horizonColor, groundColor;
+    varying vec3 vWorldPos;
+    void main(){
+      float h = normalize(vWorldPos).y;
+      vec3 col;
+      if (h >= 0.0) {
+        float t = smoothstep(0.0, 0.55, h);
+        vec3 lower = mix(horizonColor, midColor, smoothstep(0.0, 0.18, h));
+        col = mix(lower, topColor, t);
+      } else {
+        col = mix(horizonColor, groundColor, smoothstep(0.0, -0.25, h));
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+      side: THREE.BackSide, depthWrite: false,
+    });
+    const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(1500, 32, 16), skyMat);
+    scene.add(skyMesh);
+
+    const sun = new THREE.Mesh(
+      new THREE.CircleGeometry(55, 48),
+      new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.95 })
+    );
+    sun.position.set(-80, 30, -900);
+    scene.add(sun);
+
+    const sunGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(140, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0xffa860, transparent: true, opacity: 0.25,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    sunGlow.position.copy(sun.position).add(new THREE.Vector3(0, 0, 1));
+    scene.add(sunGlow);
+
+    // ====================================================================
+    //  LIGHTING
+    // ====================================================================
+    scene.add(new THREE.AmbientLight(0xffb088, 0.55));
+
+    const sunLight = new THREE.DirectionalLight(0xffc090, 1.15);
+    sunLight.position.set(-60, 70, -120);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    {
+      const sc = sunLight.shadow.camera;
+      sc.near = 1; sc.far = 240;
+      sc.left = -60; sc.right = 60; sc.top = 60; sc.bottom = -60;
+    }
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    const rimLight = new THREE.DirectionalLight(0x6a4488, 0.35);
+    rimLight.position.set(80, 30, 100);
+    scene.add(rimLight);
+
+    // ====================================================================
+    //  GROUND (large fixed plane — fine since sky/fog hide the edges)
+    // ====================================================================
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(6000, 6000, 1, 1),
+      new THREE.MeshLambertMaterial({ color: 0x9a5a3c })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // ====================================================================
+    //  DISTANT MOUNTAINS (one-shot ring, road-agnostic — they stay far away)
+    // ====================================================================
+    function buildDistantMountains(radius, count, heightMul, color) {
+      const g = new THREE.Group();
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.05;
+        const dist = radius + Math.random() * 200;
+        const h = (50 + Math.random() * 90) * heightMul;
+        const r = 70 + Math.random() * 100;
+        const m = new THREE.Mesh(
+          new THREE.ConeGeometry(r, h, 5 + (i % 3)),
+          new THREE.MeshBasicMaterial({ color })
+        );
+        m.position.set(Math.cos(angle) * dist, h / 2 - 2, Math.sin(angle) * dist);
+        g.add(m);
+      }
+      return g;
+    }
+    const mtnNear = buildDistantMountains(900, 60, 1.0, 0x4a1f30);
+    const mtnFar = buildDistantMountains(1300, 50, 0.7, 0x6a2a3a);
+    scene.add(mtnNear);
+    scene.add(mtnFar);
+    // We'll re-center these around the car each frame so they always feel "out there"
+
+    // ====================================================================
+    //  INFINITE ROAD — chunked centerline + meshes
+    // ====================================================================
+    // Strategy: maintain a buffer of centerline points generated by walking
+    // an arc/straight event chain forward. Each chunk owns its meshes and
+    // scenery, and gets disposed when it's far behind the car.
+
+    const ROAD_WIDTH = 22;
+    const ROAD_HALF = ROAD_WIDTH / 2;
+    const CHUNK_TARGET_LENGTH = 220;  // meters per chunk (roughly)
+    const POINT_STEP = 4;             // meters between centerline samples
+    const CHUNKS_AHEAD = 8;           // how many chunks to keep generated ahead
+    const CHUNKS_BEHIND = 2;          // how many chunks to keep behind
+
+    // "Pen" state — like a turtle that walks forward emitting points.
+    // We now use CONTINUOUS curvature driven by smooth noise, instead of
+    // discrete (straight/turn) events. This gives organic flowing curves,
+    // and a "return to forward" bias prevents the road from looping back
+    // on itself or crossing.
+    const roadPen = {
+      x: 0, z: 0, heading: 0,
+      distance: 0,        // total distance walked — used as the noise input
+    };
+
+    // 1D value noise — smoothed random — gives organically varying curvature.
+    // We precompute a long array of random values at fixed spacing, then
+    // interpolate smoothly between them. Two octaves layered.
+    const NOISE_SPACING_A = 90;    // meters between low-frequency noise samples (big sweepers)
+    const NOISE_SPACING_B = 28;    // meters between high-frequency samples (minor wiggle)
+    const noiseA = []; // low freq
+    const noiseB = []; // high freq
+    function getNoiseValue(arr, index) {
+      while (arr.length <= index + 1) arr.push(Math.random() * 2 - 1);
+      return arr[index];
+    }
+    function smoothNoise(arr, position, spacing) {
+      const idx = Math.floor(position / spacing);
+      const frac = (position / spacing) - idx;
+      const a = getNoiseValue(arr, idx);
+      const b = getNoiseValue(arr, idx + 1);
+      // smoothstep interpolation
+      const t = frac * frac * (3 - 2 * frac);
+      return a * (1 - t) + b * t;
+    }
+
+    // Curvature target at the pen's current distance, in rad/m.
+    // The road's HEADING is soft-clamped to ±60° from the spawn forward direction.
+    // This single constraint is what prevents the road from doubling back or
+    // crossing itself: no matter how far it wanders sideways, it always has a
+    // net forward bias.
+    const CURVATURE_MAX = 0.032;      // 1/0.032 = 31m radius — sweeper / normal corner
+    const HAIRPIN_CURVATURE = 0.055;      // 1/0.055 = 18m radius — tight hairpin
+    const FAIRMONT_CURVATURE = 0.040;      // 1/0.040 = 25m radius — Monaco Fairmont style
+    const HEADING_CLAMP_RAD = Math.PI / 2;   // ±90° max heading deviation from forward
+    const HEADING_SOFT_BAND = Math.PI / 5;   // 36° soft band
+
+    // Hairpin scheduling state — independent of the curvature noise
+    let nextHairpinAt = 600;
+    let currentHairpin = null; // { kind, direction, remaining, peak }
+
+    function targetCurvatureAt(distance, currentHeading) {
+      // -- BASE: continuous smooth curvature from noise --
+      const a = smoothNoise(noiseA, distance, NOISE_SPACING_A);
+      const b = smoothNoise(noiseB, distance, NOISE_SPACING_B);
+      let c = (a * 0.60 + b * 0.40) * CURVATURE_MAX;
+
+      // -- HAIRPIN / FAIRMONT INJECTION --
+      if (!currentHairpin && distance >= nextHairpinAt) {
+        // 30% chance it's a full Fairmont 180° turn, 70% a normal hairpin
+        const isFairmont = Math.random() < 0.30;
+        if (isFairmont) {
+          // 180° at 25m radius needs ~80m of constant curvature
+          // (arc length = radius × angle in rad = 25 × π ≈ 78m)
+          currentHairpin = {
+            kind: 'fairmont',
+            direction: Math.random() < 0.5 ? -1 : 1,
+            remaining: 75 + Math.random() * 15,  // 75–90m → ~170–205°
+            peak: FAIRMONT_CURVATURE,
+          };
+        } else {
+          currentHairpin = {
+            kind: 'hairpin',
+            direction: Math.random() < 0.5 ? -1 : 1,
+            remaining: 35 + Math.random() * 20,
+            peak: HAIRPIN_CURVATURE * (0.85 + Math.random() * 0.25),
+          };
+        }
+      }
+      if (currentHairpin) {
+        c = currentHairpin.direction * currentHairpin.peak;
+        currentHairpin.remaining -= POINT_STEP;
+        if (currentHairpin.remaining <= 0) {
+          // Fairmonts are rarer — schedule next one further out
+          const nextDelay = currentHairpin.kind === 'fairmont'
+            ? 500 + Math.random() * 400
+            : 350 + Math.random() * 350;
+          currentHairpin = null;
+          nextHairpinAt = distance + nextDelay;
+        }
+        return c; // hairpin override — skip heading clamp during the turn
+      }
+
+      // -- HEADING CLAMP: prevent the road from crossing itself (forward-only) --
+      let h = currentHeading;
+      while (h > Math.PI) h -= 2 * Math.PI;
+      while (h < -Math.PI) h += 2 * Math.PI;
+      const limit = HEADING_CLAMP_RAD;
+      const softStart = limit - HEADING_SOFT_BAND;
+      if (Math.abs(h) > softStart) {
+        const t = THREE.MathUtils.clamp((Math.abs(h) - softStart) / HEADING_SOFT_BAND, 0, 1);
+        const restoreC = -Math.sign(h) * CURVATURE_MAX * (0.4 + t * 1.4);
+        c = c * (1 - t) + restoreC * t;
+        if (Math.abs(h) >= limit) c = -Math.sign(h) * CURVATURE_MAX * 1.6;
+      }
+
+      return Math.max(-HAIRPIN_CURVATURE * 1.4, Math.min(HAIRPIN_CURVATURE * 1.4, c));
+    }
+
+    // Minimum distance the road must keep from any earlier, non-adjacent segment
+    // to prevent crossings. Set comfortably larger than the road width (22m) plus
+    // the scenery buffer.
+    const SELF_AVOID_RADIUS = 45;
+    // Within how many indices back to consider points "adjacent" (i.e. not a
+    // real crossing risk — just the immediate trailing road behind us).
+    const SELF_AVOID_IGNORE_BACK = 80; // 80 points × 4m = 320m of trailing road ignored
+
+    // Walk the pen one POINT_STEP forward, applying smooth curvature plus
+    // emergency self-avoidance: if the next point would land too close to an
+    // earlier, non-adjacent road segment, bend the curvature away.
+    function advancePen() {
+      let curvature = targetCurvatureAt(roadPen.distance, roadPen.heading);
+
+      // Lookahead: where will the new point end up?
+      // First, what would the new heading be after this step?
+      let newHeading = roadPen.heading + curvature * POINT_STEP;
+      let newX = roadPen.x + Math.sin(newHeading) * POINT_STEP;
+      let newZ = roadPen.z + Math.cos(newHeading) * POINT_STEP;
+
+      // -- COLLISION AVOIDANCE --
+      // Scan the spatial grid in a neighborhood around (newX, newZ).
+      // If any earlier road point (with index < nextChunkIdx - SELF_AVOID_IGNORE_BACK)
+      // is within SELF_AVOID_RADIUS, we have a conflict.
+      if (ROAD_GRID && nextChunkIdx > SELF_AVOID_IGNORE_BACK) {
+        const cells = Math.ceil(SELF_AVOID_RADIUS / ROAD_GRID_CELL);
+        const gx0 = Math.floor(newX / ROAD_GRID_CELL);
+        const gz0 = Math.floor(newZ / ROAD_GRID_CELL);
+        const recentCutoff = nextChunkIdx - SELF_AVOID_IGNORE_BACK;
+        let bestConflict = null; // { px, pz, idx, d2 }
+        let bestD2 = SELF_AVOID_RADIUS * SELF_AVOID_RADIUS;
+        for (let dz = -cells; dz <= cells; dz++) {
+          for (let dx = -cells; dx <= cells; dx++) {
+            const arr = ROAD_GRID.get(roadGridKey(gx0 + dx, gz0 + dz));
+            if (!arr) continue;
+            for (const p of arr) {
+              if (p.idx >= recentCutoff) continue; // ignore recent trail
+              const ddx = p.x - newX, ddz = p.z - newZ;
+              const d2 = ddx * ddx + ddz * ddz;
+              if (d2 < bestD2) {
+                bestD2 = d2;
+                bestConflict = { px: p.x, pz: p.z, idx: p.idx, d2 };
+              }
+            }
+          }
+        }
+
+        if (bestConflict) {
+          // Determine which way to bend AWAY from the conflict.
+          // Vector from conflict point to (would-be) new position.
+          const awayX = newX - bestConflict.px;
+          const awayZ = newZ - bestConflict.pz;
+          // Cross product (in y) of forward direction × awayDirection tells us
+          // whether we should turn LEFT (positive curvature) or RIGHT (negative).
+          // Forward direction at current heading:
+          const fwdX = Math.sin(roadPen.heading);
+          const fwdZ = Math.cos(roadPen.heading);
+          // 2D cross: fwd × away = fwdX*awayZ - fwdZ*awayX
+          // Positive = away vector is to the LEFT of forward → turn left (positive curvature)
+          const cross = fwdX * awayZ - fwdZ * awayX;
+          const avoidSign = cross > 0 ? 1 : -1;
+
+          // Strength: stronger the closer we are. At touch distance, max curvature.
+          const proximity = 1 - Math.sqrt(bestConflict.d2) / SELF_AVOID_RADIUS; // 0..1
+          const avoidCurvature = avoidSign * HAIRPIN_CURVATURE * 1.3 * Math.max(0.4, proximity);
+
+          // Override the base curvature when avoidance is needed (don't blend —
+          // we need to bend HARD and fast to escape a near miss).
+          curvature = avoidCurvature;
+
+          // Recompute the new heading and position with the override
+          newHeading = roadPen.heading + curvature * POINT_STEP;
+          newX = roadPen.x + Math.sin(newHeading) * POINT_STEP;
+          newZ = roadPen.z + Math.cos(newHeading) * POINT_STEP;
+
+          // Also: cancel any active hairpin event — collision avoidance takes
+          // priority, and a hairpin in the middle of an avoidance might cause
+          // a new conflict.
+          if (currentHairpin) {
+            currentHairpin = null;
+            nextHairpinAt = roadPen.distance + 250 + Math.random() * 250;
+          }
+        }
+      }
+
+      roadPen.heading = newHeading;
+      roadPen.x = newX;
+      roadPen.z = newZ;
+      roadPen.distance += POINT_STEP;
+      return new THREE.Vector3(roadPen.x, 0, roadPen.z);
+    }
+
+    // Master point buffer. We never delete from the front (so indices stay stable);
+    // we just drop references when a chunk is removed. The spatial grid covers active points only.
+    const ROAD_POINTS = [];            // all generated centerline points
+    const chunks = [];                 // { startIdx, endIdx, meshes:[], sceneryGroup }
+    let nextChunkIdx = 0;              // index that the next chunk should start at
+
+    // Spatial grid for "where is the road near (x,z)?"
+    const ROAD_GRID = new Map();
+    const ROAD_GRID_CELL = 25;
+    function roadGridKey(gx, gz) { return gx + ',' + gz; }
+    function roadGridAdd(p, idx) {
+      const gx = Math.floor(p.x / ROAD_GRID_CELL);
+      const gz = Math.floor(p.z / ROAD_GRID_CELL);
+      const key = roadGridKey(gx, gz);
+      let arr = ROAD_GRID.get(key);
+      if (!arr) { arr = []; ROAD_GRID.set(key, arr); }
+      arr.push({ x: p.x, z: p.z, idx });
+    }
+    function roadGridRemove(p, idx) {
+      const gx = Math.floor(p.x / ROAD_GRID_CELL);
+      const gz = Math.floor(p.z / ROAD_GRID_CELL);
+      const key = roadGridKey(gx, gz);
+      const arr = ROAD_GRID.get(key);
+      if (!arr) return;
+      const i = arr.findIndex(e => e.idx === idx);
+      if (i >= 0) arr.splice(i, 1);
+      if (arr.length === 0) ROAD_GRID.delete(key);
+    }
+    function nearestRoadPoint(x, z, searchRadius) {
+      const r = searchRadius || 60;
+      const cells = Math.ceil(r / ROAD_GRID_CELL);
+      const gx0 = Math.floor(x / ROAD_GRID_CELL);
+      const gz0 = Math.floor(z / ROAD_GRID_CELL);
+      let bestD2 = Infinity, bestIdx = -1;
+      for (let dz = -cells; dz <= cells; dz++) {
+        for (let dx = -cells; dx <= cells; dx++) {
+          const arr = ROAD_GRID.get(roadGridKey(gx0 + dx, gz0 + dz));
+          if (!arr) continue;
+          for (const p of arr) {
+            const dxp = p.x - x, dzp = p.z - z;
+            const d2 = dxp * dxp + dzp * dzp;
+            if (d2 < bestD2) { bestD2 = d2; bestIdx = p.idx; }
+          }
+        }
+      }
+      return { d2: bestD2, idx: bestIdx };
+    }
+
+    // Like nearestRoadPoint, but prefers road points whose tangent aligns with
+    // the car's heading direction. Prevents the assist from latching onto the
+    // wrong segment when the road folds near itself.
+    function nearestRoadPointAligned(x, z, headingX, headingZ, searchRadius) {
+      const r = searchRadius || 60;
+      const cells = Math.ceil(r / ROAD_GRID_CELL);
+      const gx0 = Math.floor(x / ROAD_GRID_CELL);
+      const gz0 = Math.floor(z / ROAD_GRID_CELL);
+      let bestScore = Infinity, bestIdx = -1, bestD2 = Infinity;
+      for (let dz = -cells; dz <= cells; dz++) {
+        for (let dx = -cells; dx <= cells; dx++) {
+          const arr = ROAD_GRID.get(roadGridKey(gx0 + dx, gz0 + dz));
+          if (!arr) continue;
+          for (const p of arr) {
+            const dxp = p.x - x, dzp = p.z - z;
+            const d2 = dxp * dxp + dzp * dzp;
+            if (d2 > r * r) continue;
+            // Compute tangent at this point (cheap version: use neighbors)
+            const prev = ROAD_POINTS[p.idx - 1];
+            const next = ROAD_POINTS[p.idx + 1];
+            let tx, tz;
+            if (prev && next) { tx = next.x - prev.x; tz = next.z - prev.z; }
+            else if (next) { tx = next.x - p.x; tz = next.z - p.z; }
+            else if (prev) { tx = p.x - prev.x; tz = p.z - prev.z; }
+            else { tx = 0; tz = 1; }
+            const tlen = Math.hypot(tx, tz) || 1;
+            tx /= tlen; tz /= tlen;
+            // Alignment: 1 = same direction, -1 = opposite.
+            // Only penalize points whose tangent goes the WRONG way (align < 0).
+            // Mid-drift, the car heading rotates significantly relative to road
+            // tangent, but we still want to grab the right segment, so we're
+            // forgiving of moderate misalignment.
+            const align = tx * headingX + tz * headingZ; // -1..1
+            const alignPenalty = align < -0.1 ? (-0.1 - align) * 12000 : 0;
+            const score = d2 + alignPenalty;
+            if (score < bestScore) {
+              bestScore = score;
+              bestIdx = p.idx;
+              bestD2 = d2;
+            }
+          }
+        }
+      }
+      return { d2: bestD2, idx: bestIdx };
+    }
+
+    // Tangent / perpendicular at an index into ROAD_POINTS (returns nulls if out of range)
+    function tanPerpAt(i) {
+      const p = ROAD_POINTS[i];
+      if (!p) return { t: null, p: null };
+      let prev = ROAD_POINTS[i - 1];
+      let next = ROAD_POINTS[i + 1];
+      let t;
+      if (prev && next) t = next.clone().sub(prev);
+      else if (next) t = next.clone().sub(p);
+      else if (prev) t = p.clone().sub(prev);
+      else t = new THREE.Vector3(0, 0, 1);
+      t.normalize();
+      const perp = new THREE.Vector3(-t.z, 0, t.x);
+      return { t, p: perp };
+    }
+
+    // ---- Chunk builder ----
+    // Builds asphalt ribbon, edge lines, dashed centerline, posts, and scenery
+    // for the given index range [startIdx, endIdx).
+    function buildChunkMeshes(startIdx, endIdx) {
+      const meshes = [];
+      if (endIdx - startIdx < 2) return { meshes, sceneryGroup: new THREE.Group() };
+
+      const Y_ASPHALT = 0.02;
+      const Y_LINE = 0.028;
+
+      // --- Asphalt ribbon ---
+      const asPos = [], asIdx = [];
+      for (let i = startIdx; i < endIdx; i++) {
+        const { p: perp } = tanPerpAt(i);
+        const c = ROAD_POINTS[i];
+        const L = c.clone().addScaledVector(perp, ROAD_HALF);
+        const R = c.clone().addScaledVector(perp, -ROAD_HALF);
+        asPos.push(L.x, Y_ASPHALT, L.z, R.x, Y_ASPHALT, R.z);
+      }
+      const ringCount = endIdx - startIdx;
+      for (let i = 0; i < ringCount - 1; i++) {
+        const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+        asIdx.push(a, c, b, b, c, d);
+      }
+      const asGeo = new THREE.BufferGeometry();
+      asGeo.setAttribute('position', new THREE.Float32BufferAttribute(asPos, 3));
+      asGeo.setIndex(asIdx);
+      asGeo.computeVertexNormals();
+      const asphalt = new THREE.Mesh(
+        asGeo,
+        new THREE.MeshLambertMaterial({ color: 0x1f1612 })
+      );
+      asphalt.receiveShadow = true;
+      scene.add(asphalt);
+      meshes.push(asphalt);
+
+      // --- Edge lines ---
+      function buildEdgeLine(sideSign, width) {
+        const pos = [], idx = [];
+        const inset = ROAD_HALF - 0.35;
+        for (let i = startIdx; i < endIdx; i++) {
+          const { p: perp } = tanPerpAt(i);
+          const c = ROAD_POINTS[i];
+          const inner = c.clone().addScaledVector(perp, sideSign * (inset - width));
+          const outer = c.clone().addScaledVector(perp, sideSign * inset);
+          pos.push(inner.x, Y_LINE, inner.z, outer.x, Y_LINE, outer.z);
+        }
+        for (let i = 0; i < ringCount - 1; i++) {
+          const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+          idx.push(a, c, b, b, c, d);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setIndex(idx);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf5e3c0 }));
+        scene.add(m); meshes.push(m);
+      }
+      buildEdgeLine(1, 0.22);
+      buildEdgeLine(-1, 0.22);
+
+      // --- Dashed centerline ---
+      const dashPos = [], dashIdx = [];
+      const dashHalf = 0.13;
+      const dashOn = 2, dashOff = 2;
+      const cycle = dashOn + dashOff;
+      let v = 0;
+      // Use the global index to keep the dash pattern continuous across chunks
+      for (let i = startIdx; i < endIdx - 1; i++) {
+        if (i % cycle >= dashOn) continue;
+        const { p: perp } = tanPerpAt(i);
+        const { p: perp2 } = tanPerpAt(i + 1);
+        const p1 = ROAD_POINTS[i], p2 = ROAD_POINTS[i + 1];
+        const lA = p1.clone().addScaledVector(perp, dashHalf);
+        const rA = p1.clone().addScaledVector(perp, -dashHalf);
+        const lB = p2.clone().addScaledVector(perp2, dashHalf);
+        const rB = p2.clone().addScaledVector(perp2, -dashHalf);
+        dashPos.push(lA.x, Y_LINE, lA.z, rA.x, Y_LINE, rA.z,
+          lB.x, Y_LINE, lB.z, rB.x, Y_LINE, rB.z);
+        dashIdx.push(v, v + 2, v + 1, v + 1, v + 2, v + 3);
+        v += 4;
+      }
+      if (dashPos.length) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(dashPos, 3));
+        g.setIndex(dashIdx);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf0d090 }));
+        scene.add(m); meshes.push(m);
+      }
+
+      // --- Roadside reflector posts (instanced) ---
+      const postStep = 6;
+      const postCount = Math.ceil(ringCount / postStep) * 2 + 2;
+      if (postCount > 0) {
+        const postMesh = new THREE.InstancedMesh(
+          new THREE.CylinderGeometry(0.09, 0.09, 1.1, 6),
+          new THREE.MeshLambertMaterial({ color: 0xffe4b0 }),
+          postCount
+        );
+        postMesh.castShadow = true;
+        const dummy = new THREE.Object3D();
+        let pi = 0;
+        for (let i = startIdx; i < endIdx; i += postStep) {
+          const { p: perp } = tanPerpAt(i);
+          const c = ROAD_POINTS[i];
+          for (const s of [-1, 1]) {
+            const px = c.x + perp.x * s * (ROAD_HALF + 0.6);
+            const pz = c.z + perp.z * s * (ROAD_HALF + 0.6);
+            dummy.position.set(px, 0.55, pz);
+            dummy.updateMatrix();
+            if (pi < postCount) postMesh.setMatrixAt(pi++, dummy.matrix);
+          }
+        }
+        postMesh.count = pi;
+        postMesh.instanceMatrix.needsUpdate = true;
+        scene.add(postMesh);
+        meshes.push(postMesh);
+      }
+
+      // --- Desert scenery for this chunk ---
+      const sceneryGroup = new THREE.Group();
+      const cactusMat = new THREE.MeshLambertMaterial({ color: 0x3d5a3a });
+      const trunkGeo = new THREE.CylinderGeometry(0.28, 0.32, 2.6, 8);
+      const armGeo = new THREE.CylinderGeometry(0.22, 0.22, 1.1, 8);
+      const treeMat = new THREE.MeshLambertMaterial({ color: 0x5a3a26 });
+      const trunkTreeGeo = new THREE.CylinderGeometry(0.18, 0.28, 2.4, 6);
+      const branchGeo = new THREE.CylinderGeometry(0.08, 0.12, 1.2, 5);
+      const rockMat = new THREE.MeshLambertMaterial({ color: 0x6b4030 });
+      const rockGeo = new THREE.DodecahedronGeometry(0.6, 0);
+
+      function makeCactus() {
+        const g = new THREE.Group();
+        const trunk = new THREE.Mesh(trunkGeo, cactusMat);
+        trunk.position.y = 1.3; trunk.castShadow = true;
+        g.add(trunk);
+        const arms = Math.floor(Math.random() * 3);
+        for (let i = 0; i < arms; i++) {
+          const arm = new THREE.Mesh(armGeo, cactusMat);
+          const side = Math.random() < 0.5 ? -1 : 1;
+          arm.position.set(side * 0.4, 1.6 + Math.random() * 0.5, 0);
+          arm.rotation.z = side * (Math.PI / 3);
+          arm.castShadow = true;
+          g.add(arm);
+        }
+        g.rotation.y = Math.random() * Math.PI * 2;
+        return g;
+      }
+      function makeTree() {
+        const g = new THREE.Group();
+        const trunk = new THREE.Mesh(trunkTreeGeo, treeMat);
+        trunk.position.y = 1.2; trunk.castShadow = true;
+        g.add(trunk);
+        const branches = 2 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < branches; i++) {
+          const br = new THREE.Mesh(branchGeo, treeMat);
+          const ang = Math.random() * Math.PI * 2;
+          br.position.set(Math.cos(ang) * 0.2, 1.8 + Math.random() * 0.6, Math.sin(ang) * 0.2);
+          br.rotation.z = (Math.random() - 0.5) * 1.4;
+          br.rotation.y = ang;
+          g.add(br);
+        }
+        g.rotation.y = Math.random() * Math.PI * 2;
+        return g;
+      }
+      function makeRock() {
+        const r = new THREE.Mesh(rockGeo, rockMat);
+        r.scale.setScalar(0.6 + Math.random() * 1.4);
+        r.position.y = 0.3;
+        r.rotation.set(Math.random(), Math.random(), Math.random());
+        r.castShadow = true;
+        return r;
+      }
+
+      // Sandstone pillar (tall, close-to-road, drives motion blur perception)
+      const pillarMat = new THREE.MeshLambertMaterial({ color: 0x7a4a32 });
+      function makePillar() {
+        const g = new THREE.Group();
+        // Stacked uneven cylinders for a weathered look
+        const segments = 2 + Math.floor(Math.random() * 3);
+        let y = 0;
+        for (let s = 0; s < segments; s++) {
+          const r1 = 0.7 + Math.random() * 0.5;
+          const r2 = r1 * (0.85 + Math.random() * 0.2);
+          const h = 1.4 + Math.random() * 1.5;
+          const cyl = new THREE.Mesh(
+            new THREE.CylinderGeometry(r2, r1, h, 8),
+            pillarMat
+          );
+          cyl.position.y = y + h / 2;
+          cyl.castShadow = true;
+          g.add(cyl);
+          y += h * 0.92;
+        }
+        g.rotation.y = Math.random() * Math.PI * 2;
+        return g;
+      }
+
+      // Warning sign / mile marker — close to road, taller than ground scatter
+      const signPoleMat = new THREE.MeshLambertMaterial({ color: 0x6a6a6a });
+      const signBoardMat = new THREE.MeshBasicMaterial({ color: 0xf5d090 });
+      function makeSign() {
+        const g = new THREE.Group();
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.08, 2.4, 6),
+          signPoleMat
+        );
+        pole.position.y = 1.2;
+        pole.castShadow = true;
+        g.add(pole);
+        const board = new THREE.Mesh(
+          new THREE.BoxGeometry(0.95, 0.6, 0.04),
+          signBoardMat
+        );
+        board.position.y = 2.0;
+        g.add(board);
+        g.rotation.y = Math.random() * Math.PI * 2;
+        return g;
+      }
+
+      // -- DENSE SCATTER (more objects = stronger sense of speed) --
+      // Two passes: a close-in pass with taller objects, a far pass with low ground scatter
+      for (let i = startIdx; i < endIdx; i++) {
+        const c = ROAD_POINTS[i];
+        const { p: perp } = tanPerpAt(i);
+
+        // CLOSE BAND: taller objects, right at the road shoulder. Higher hit rate.
+        // Only every 2nd index to avoid total clutter.
+        if (i % 2 === 0) {
+          for (const side of [-1, 1]) {
+            if (Math.random() > 0.40) continue;
+            const off = ROAD_HALF + 3 + Math.random() * 4;
+            const x = c.x + perp.x * side * off + (Math.random() - 0.5) * 2;
+            const z = c.z + perp.z * side * off + (Math.random() - 0.5) * 2;
+            const { d2 } = nearestRoadPoint(x, z, ROAD_HALF + 5);
+            if (d2 < (ROAD_HALF + 2) * (ROAD_HALF + 2)) continue;
+            const roll = Math.random();
+            let obj;
+            if (roll < 0.45) obj = makeCactus();
+            else if (roll < 0.70) obj = makePillar();
+            else if (roll < 0.88) obj = makeTree();
+            else obj = makeSign();
+            obj.position.x = x;
+            obj.position.z = z;
+            sceneryGroup.add(obj);
+          }
+        }
+
+        // FAR BAND: low ground scatter further out. Less dense, just visual texture.
+        if (i % 4 === 0) {
+          for (const side of [-1, 1]) {
+            if (Math.random() > 0.55) continue;
+            const off = ROAD_HALF + 10 + Math.random() * 20;
+            const x = c.x + perp.x * side * off + (Math.random() - 0.5) * 6;
+            const z = c.z + perp.z * side * off + (Math.random() - 0.5) * 6;
+            const { d2 } = nearestRoadPoint(x, z, ROAD_HALF + 8);
+            if (d2 < (ROAD_HALF + 2) * (ROAD_HALF + 2)) continue;
+            const roll = Math.random();
+            let obj;
+            if (roll < 0.45) obj = makeRock();
+            else if (roll < 0.75) obj = makeCactus();
+            else obj = makePillar();
+            obj.position.x = x;
+            obj.position.z = z;
+            sceneryGroup.add(obj);
+          }
+        }
+      }
+      scene.add(sceneryGroup);
+
+      return { meshes, sceneryGroup };
+    }
+
+    function disposeChunk(chunk) {
+      for (const m of chunk.meshes) {
+        scene.remove(m);
+        m.geometry?.dispose?.();
+      }
+      // Free the road-grid entries for all points EXCEPT the last one, which is
+      // shared with the next chunk (1-vertex overlap eliminates seam gaps).
+      for (let i = chunk.startIdx; i < chunk.endIdx - 1; i++) {
+        const p = ROAD_POINTS[i];
+        if (p) roadGridRemove(p, i);
+        ROAD_POINTS[i] = null;
+      }
+      scene.remove(chunk.sceneryGroup);
+      chunk.sceneryGroup.traverse(o => { o.geometry?.dispose?.(); });
+    }
+
+    function generateNextChunk() {
+      // Overlap by 1 with the previous chunk to eliminate seam gaps.
+      // The previous chunk's last vertex is at index nextChunkIdx-1; we re-use it
+      // as the FIRST vertex of this new chunk, which means consecutive quads
+      // share an edge and there's no visible gap.
+      const startIdx = Math.max(0, nextChunkIdx - 1);
+      const targetSteps = Math.ceil(CHUNK_TARGET_LENGTH / POINT_STEP);
+      for (let i = 0; i < targetSteps; i++) {
+        const p = advancePen();
+        ROAD_POINTS[nextChunkIdx] = p;
+        roadGridAdd(p, nextChunkIdx);
+        nextChunkIdx++;
+      }
+      const endIdx = nextChunkIdx;
+      const { meshes, sceneryGroup } = buildChunkMeshes(startIdx, endIdx);
+      chunks.push({ startIdx, endIdx, meshes, sceneryGroup });
+    }
+
+    // Initialise: spawn entry straight + a few chunks ahead
+    function initRoad() {
+      // Start pen 200m behind spawn so the car has road behind it.
+      // Pre-seed noise sample [0] so the first stretch is essentially straight
+      // (otherwise the road can start mid-curve).
+      noiseA[0] = 0; noiseB[0] = 0;
+      noiseA[1] = 0.1; noiseB[1] = 0.1;
+      roadPen.x = 0; roadPen.z = -200; roadPen.heading = 0; roadPen.distance = 0;
+      // Walk 200m of near-straight entry + ~80m more
+      const entrySteps = Math.ceil(280 / POINT_STEP);
+      for (let i = 0; i < entrySteps; i++) {
+        const p = advancePen();
+        ROAD_POINTS[nextChunkIdx] = p;
+        roadGridAdd(p, nextChunkIdx);
+        nextChunkIdx++;
+      }
+      const { meshes, sceneryGroup } = buildChunkMeshes(0, nextChunkIdx);
+      chunks.push({ startIdx: 0, endIdx: nextChunkIdx, meshes, sceneryGroup });
+
+      for (let i = 0; i < CHUNKS_AHEAD; i++) generateNextChunk();
+    }
+    initRoad();
+
+    // Tracks the car's monotonic progress along the road. Only ever moves
+    // FORWARD (toward higher indices). This prevents the streamer from
+    // getting confused by geometric proximity to old segments.
+    let carRoadIdx = 0;
+
+    // Respawn state — kicks in if the player has been far from the road for
+    // long enough that they're clearly lost (not just a wide drift).
+    const RESPAWN_DISTANCE = 70;        // meters from road centerline
+    const RESPAWN_HOLD_TIME = 1.5;      // seconds of being lost before respawn
+    let lostTimer = 0;
+    let respawning = false;             // brief flag during teleport for fade
+
+    function attemptRespawn() {
+      // Find nearest road point with a broad search
+      const near = nearestRoadPoint(carState.position.x, carState.position.z, 600);
+      if (near.idx < 0) return;
+      const roadP = ROAD_POINTS[near.idx];
+      if (!roadP) return;
+      const { t: roadTan } = tanPerpAt(near.idx);
+      if (!roadTan) return;
+
+      // Teleport to the road point, facing along the tangent
+      carState.position.set(roadP.x, 0, roadP.z);
+      carState.heading = Math.atan2(roadTan.x, roadTan.z);
+      // Cut speed to half — feels less jarring than dropping to zero, and
+      // keeps the engine note from suddenly idling
+      const halfSpeed = carState.velocity.length() * 0.5;
+      setBodyAxes(carState.heading);
+      carState.velocity.copy(_forward).multiplyScalar(Math.min(halfSpeed, 18));
+      carState.driftTime = 0;
+      carState.steerInput = 0;
+      // Reset the road index to land on the new spot (only allow forward)
+      if (near.idx > carRoadIdx) carRoadIdx = near.idx;
+      lostTimer = 0;
+      // Trigger a brief respawn flash
+      respawning = true;
+      const flashEl = document.getElementById('respawnFlash');
+      const labelEl = document.getElementById('respawnLabel');
+      if (flashEl) flashEl.classList.add('active');
+      if (labelEl) labelEl.classList.add('active');
+      setTimeout(() => {
+        respawning = false;
+        if (flashEl) flashEl.classList.remove('active');
+        if (labelEl) labelEl.classList.remove('active');
+      }, 450);
+    }
+
+    // Per-frame: ensure chunks ahead of car, dispose chunks far behind
+    function streamRoad() {
+      // Find which road index the car is currently nearest to.
+      // BUT: only allow this to advance forward, never jump backward.
+      // We search in a small window AHEAD of the current carRoadIdx.
+      const SEARCH_AHEAD = 60;  // how many indices ahead to scan
+      const SEARCH_BEHIND = 4;  // small tolerance for slight reverse (off-road wiggle)
+      const lo = Math.max(0, carRoadIdx - SEARCH_BEHIND);
+      const hi = Math.min(nextChunkIdx, carRoadIdx + SEARCH_AHEAD);
+      let bestIdx = -1, bestD2 = Infinity;
+      for (let i = lo; i < hi; i++) {
+        const p = ROAD_POINTS[i];
+        if (!p) continue;
+        const dx = p.x - carState.position.x;
+        const dz = p.z - carState.position.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < bestD2) { bestD2 = d2; bestIdx = i; }
+      }
+
+      // If we didn't find anything in the window, fall back to a broader search.
+      // This handles initial spawn and edge cases.
+      if (bestIdx < 0) {
+        const near = nearestRoadPoint(carState.position.x, carState.position.z, 400);
+        if (near.idx < 0) return;
+        bestIdx = near.idx;
+      }
+
+      // Only advance forward. If we somehow ended up at a lower idx, ignore it.
+      if (bestIdx > carRoadIdx) carRoadIdx = bestIdx;
+
+      const carIdx = carRoadIdx;
+      const targetAheadPoints = Math.ceil((CHUNKS_AHEAD * CHUNK_TARGET_LENGTH) / POINT_STEP);
+
+      // --- GENERATE AHEAD ---
+      let generatedThisFrame = 0;
+      while (
+        (nextChunkIdx - 1 - carIdx) < targetAheadPoints &&
+        generatedThisFrame < 2
+      ) {
+        generateNextChunk();
+        generatedThisFrame++;
+      }
+
+      // --- DISPOSE BEHIND ---
+      // Only dispose chunks well behind the car. Always keep at least 2 chunks alive.
+      const disposeThresholdPoints = CHUNKS_BEHIND * Math.ceil(CHUNK_TARGET_LENGTH / POINT_STEP);
+      while (chunks.length > 2) {
+        const c = chunks[0];
+        if (c.endIdx + disposeThresholdPoints < carIdx) {
+          disposeChunk(c);
+          chunks.shift();
+        } else break;
+      }
+    }
+
+    // ====================================================================
+    //  CAR
+    // ====================================================================
+    function buildCar() {
+      const g = new THREE.Group();
+
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(1.9, 0.55, 4.2),
+        new THREE.MeshPhongMaterial({ color: 0xd83040, shininess: 90, specular: 0x553030 })
+      );
+      body.position.y = 0.55; body.castShadow = true;
+      body.userData.role = 'body';
+      g.add(body);
+
+      const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.5, 1.9),
+        new THREE.MeshPhongMaterial({ color: 0x1a1a22, shininess: 110, specular: 0x444466 })
+      );
+      cabin.position.set(0, 1.1, -0.2); cabin.castShadow = true;
+      g.add(cabin);
+
+      const hood = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 0.06, 1.4),
+        new THREE.MeshPhongMaterial({ color: 0xb02838 })
+      );
+      hood.position.set(0, 0.87, 1.0);
+      hood.userData.role = 'accent';
+      g.add(hood);
+
+      const hlMat = new THREE.MeshBasicMaterial({ color: 0xfff4d0 });
+      [-0.65, 0.65].forEach(x => {
+        const hl = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, 0.12), hlMat);
+        hl.position.set(x, 0.7, 2.1);
+        g.add(hl);
+      });
+
+      const tlMat = new THREE.MeshBasicMaterial({ color: 0xff3030 });
+      [-0.7, 0.7].forEach(x => {
+        const tl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.08), tlMat);
+        tl.position.set(x, 0.7, -2.1);
+        g.add(tl);
+      });
+
+      const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 18);
+      const wheelMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 30 });
+      const wheels = [];
+      [[0.95, 1.35, true], [-0.95, 1.35, true], [0.95, -1.35, false], [-0.95, -1.35, false]]
+        .forEach(([x, z, isFront]) => {
+          const pivot = new THREE.Group();
+          pivot.position.set(x, 0.42, z);
+          const w = new THREE.Mesh(wheelGeo, wheelMat);
+          w.rotation.z = Math.PI / 2; w.castShadow = true;
+          pivot.add(w);
+          pivot.userData = { wheel: w, isFront };
+          g.add(pivot);
+          wheels.push(pivot);
+        });
+
+      g.userData.wheels = wheels;
+      return g;
+    }
+    const car = buildCar();
+    scene.add(car);
+
+    // Update the car's body color from a car config
+    function recolorCar(carConfig) {
+      if (!car) return;
+      car.traverse(child => {
+        if (!child.isMesh) return;
+        if (child.userData.role === 'body') {
+          child.material.color.setHex(carConfig.color);
+        } else if (child.userData.role === 'accent') {
+          // Mix: 70% body color + 30% accent, for the hood stripe
+          const bodyC = new THREE.Color(carConfig.color);
+          const accentC = new THREE.Color(carConfig.accentColor || carConfig.color);
+          const mixed = bodyC.clone().lerp(accentC, 0.6);
+          child.material.color.copy(mixed);
+        }
+      });
+    }
+
+    // ====================================================================
+    //  PHYSICS
+    // ====================================================================
+    const carState = {
+      position: new THREE.Vector3(0, 0, 0),
+      velocity: new THREE.Vector3(0, 0, 0),
+      heading: 0,
+      steerAngle: 0,
+      driftTime: 0,
+      steerInput: 0,
+      gear: 1,
+      rpm: 900,
+      shiftTimer: 0,        // counts down during a shift; throttle cut while > 0
+      shiftDirection: 0,    // +1 up, -1 down, 0 idle — used for visual cue
+    };
+
+    // ====================================================================
+    //  CAR CATALOG — five distinct profiles with their own physics + audio
+    // ====================================================================
+    // Each car has its own driving feel: top speed, acceleration curve,
+    // grip, gearbox, engine character. Selected via the title menu before play.
+    const CARS = [
+      {
+        id: 'gt3rs',
+        name: 'Aragon GT3 RS',
+        inspiration: '911 GT3 RS',
+        tagline: 'precision · flat-six',
+        color: 0xe2e2e6,
+        accentColor: 0xd83040,
+        accel: 9.5,
+        maxForward: 86,
+        gripNormal: 6.4,
+        gripHandbrake: 0.95,
+        gearRatios: [3.9, 2.8, 2.1, 1.65, 1.30, 1.05, 0.85],
+        finalDrive: 3.6,
+        rpmIdle: 1000,
+        rpmRedline: 8800,
+        rpmShiftUp: 8100,
+        rpmShiftDown: 4600,
+        cylinders: 6,
+      },
+      {
+        id: 'm4csl',
+        name: 'Anvil M4 CSL',
+        inspiration: 'BMW M4 CSL',
+        tagline: 'balanced · inline-six',
+        color: 0x1a3242,
+        accentColor: 0xc8a464,
+        accel: 8.6,
+        maxForward: 82,
+        gripNormal: 6.0,
+        gripHandbrake: 0.9,
+        gearRatios: [4.0, 2.9, 2.2, 1.70, 1.35, 1.10, 0.90, 0.74],
+        finalDrive: 3.5,
+        rpmIdle: 900,
+        rpmRedline: 7800,
+        rpmShiftUp: 7200,
+        rpmShiftDown: 4200,
+        cylinders: 6,
+      },
+      {
+        id: 'laferrari',
+        name: 'Solera Stradale',
+        inspiration: 'LaFerrari',
+        tagline: 'screamer · v12',
+        color: 0xb30a17,
+        accentColor: 0x111111,
+        accel: 10.4,
+        maxForward: 92,
+        gripNormal: 5.8,
+        gripHandbrake: 0.85,
+        gearRatios: [4.1, 2.95, 2.25, 1.75, 1.40, 1.12, 0.92],
+        finalDrive: 3.7,
+        rpmIdle: 1100,
+        rpmRedline: 9000,
+        rpmShiftUp: 8500,
+        rpmShiftDown: 5000,
+        cylinders: 12,
+      },
+      {
+        id: 'huayra',
+        name: 'Zephyr Aetós',
+        inspiration: 'Pagani Huayra',
+        tagline: 'floaty · twin-turbo v12',
+        color: 0xb29560,
+        accentColor: 0x2a221a,
+        accel: 9.8,
+        maxForward: 88,
+        gripNormal: 5.4,         // floatier — more drift-prone
+        gripHandbrake: 0.75,
+        gearRatios: [3.8, 2.7, 2.05, 1.60, 1.28, 1.05, 0.86],
+        finalDrive: 3.8,
+        rpmIdle: 900,
+        rpmRedline: 6800,        // turbo limit
+        rpmShiftUp: 6300,
+        rpmShiftDown: 3600,
+        cylinders: 12,
+      },
+      {
+        id: 'jesko',
+        name: 'Helix Apex',
+        inspiration: 'Koenigsegg Jesko',
+        tagline: 'explosive · twin-turbo v8',
+        color: 0x141420,
+        accentColor: 0x65c8ff,
+        accel: 11.6,             // brutal
+        maxForward: 100,         // ~360 km/h
+        gripNormal: 5.6,         // twitchy
+        gripHandbrake: 0.9,
+        gearRatios: [4.2, 3.1, 2.4, 1.9, 1.50, 1.18, 0.95, 0.78],
+        finalDrive: 3.7,
+        rpmIdle: 1000,
+        rpmRedline: 8200,
+        rpmShiftUp: 7600,
+        rpmShiftDown: 4400,
+        cylinders: 8,
+      },
+    ];
+
+    let CURRENT_CAR = CARS[0]; // default before menu selection
+
+    // Per-car physics state — written by applyCar(), read by physics code.
+    // These were const before; now they're let so the menu can swap cars.
+    let ACCEL = 9;
+    let MAX_FORWARD = 86;
+    let GRIP_NORMAL = 6.0;
+    let GRIP_HANDBRAKE = 0.9;
+    let GEAR_RATIOS = [4.2, 3.0, 2.3, 1.85, 1.5, 1.22, 1.0, 0.82];
+    let FINAL_DRIVE = 3.6;
+    let RPM_IDLE = 900;
+    let RPM_REDLINE = 8500;
+    let RPM_SHIFT_UP = 7800;
+    let RPM_SHIFT_DOWN = 4500;
+    let ENGINE_CYLINDERS = 8;
+
+    function applyCar(car) {
+      CURRENT_CAR = car;
+      ACCEL = car.accel;
+      MAX_FORWARD = car.maxForward;
+      GRIP_NORMAL = car.gripNormal;
+      GRIP_HANDBRAKE = car.gripHandbrake;
+      GEAR_RATIOS = car.gearRatios.slice();
+      FINAL_DRIVE = car.finalDrive;
+      RPM_IDLE = car.rpmIdle;
+      RPM_REDLINE = car.rpmRedline;
+      RPM_SHIFT_UP = car.rpmShiftUp;
+      RPM_SHIFT_DOWN = car.rpmShiftDown;
+      ENGINE_CYLINDERS = car.cylinders;
+      // Reposition the upshift tick on the rev bar to match the new car
+      const tick = document.getElementById('upshiftTick');
+      if (tick) {
+        const frac = (RPM_SHIFT_UP - RPM_IDLE) / (RPM_REDLINE - RPM_IDLE);
+        tick.style.left = (frac * 100).toFixed(1) + '%';
+      }
+      // Update the car's body color
+      recolorCar(car);
+      // Reset the car so RPM idles correctly at the new redline range
+      if (typeof resetCar === 'function') resetCar();
+    }
+
+    // Apply default before everything else runs
+    // (CURRENT_CAR is already CARS[0], values match — this is for ordering)
+
+    // Universal physics constants (same for all cars)
+    const BRAKE_FORCE = 32;
+    const REVERSE_ACCEL = 6;
+    const MAX_REVERSE = -10;
+    const COAST_DRAG_FORWARD = 1.8;
+    const STEER_RATE = 1.9;
+    const STEER_FACTOR_MIN = 0.45;
+    const STEER_INPUT_RAMP = 5.5;
+    const STEER_INPUT_RELEASE = 7.0;
+
+    // Road-snap assist (active near road edges) — pulls heading toward road
+    // direction and pushes velocity back toward centerline. Stronger on corner
+    // exits when the player eases off the wheel.
+    const SNAP_HEADING_K = 2.8;
+    const SNAP_LATERAL_K = 1.8;
+
+    // Smoothed target tangent for the assist (persists frame-to-frame).
+    // Reset to null when the assist disengages.
+    let assistTangentSmoothed = null;
+
+    // 8-speed gearbox values are per-car (see applyCar above).
+    // WHEEL_RADIUS and SHIFT_DURATION are universal.
+    const WHEEL_RADIUS = 0.42;
+
+    // Gear-shift feel: power cut during shift, plus visual/audio cues
+    const SHIFT_DURATION = 0.18;   // seconds power is cut during a shift
+
+    const _forward = new THREE.Vector3();
+    const _right = new THREE.Vector3();
+    function setBodyAxes(h) {
+      _forward.set(Math.sin(h), 0, Math.cos(h));
+      _right.set(Math.cos(h), 0, -Math.sin(h));
+    }
+
+    const keys = {};
+    let audioHintEl = null;
+    addEventListener('keydown', e => {
+      // Don't process driving inputs while the menu is up
+      if (typeof gameStarted !== 'undefined' && !gameStarted) return;
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      if (e.repeat) return;
+      initAudio();
+      if (audioHintEl) audioHintEl.classList.remove('show');
+      keys[e.code] = true;
+      if (e.code === 'KeyR') resetCar();
+      if (e.code === 'KeyC') cycleView();
+    });
+    addEventListener('keyup', e => { keys[e.code] = false; });
+
+    function resetCar() {
+      carState.position.set(0, 0, 0);
+      carState.velocity.set(0, 0, 0);
+      carState.heading = 0;
+      carState.steerAngle = 0;
+      carState.driftTime = 0;
+      carState.steerInput = 0;
+      carState.gear = 1;
+      carState.rpm = RPM_IDLE;
+      carState.shiftTimer = 0;
+      carState.shiftDirection = 0;
+      carRoadIdx = 0;
+    }
+
+    // Heading-difference helper (returns -PI..PI)
+    function angleDelta(a, b) {
+      let d = a - b;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      return d;
+    }
+
+    function updatePhysics(dt) {
+      const throttle = (keys.KeyW || keys.ArrowUp) ? 1 : 0;
+      const brake = (keys.KeyS || keys.ArrowDown) ? 1 : 0;
+      const steerRaw = ((keys.KeyA || keys.ArrowLeft) ? 1 : 0) - ((keys.KeyD || keys.ArrowRight) ? 1 : 0);
+      const handbrake = keys.Space ? 1 : 0;
+
+      // Smoothed steering input (the big stress fix from last round)
+      if (Math.sign(steerRaw) === Math.sign(carState.steerInput) || carState.steerInput === 0) {
+        const k = steerRaw === 0 ? STEER_INPUT_RELEASE : STEER_INPUT_RAMP;
+        carState.steerInput += (steerRaw - carState.steerInput) * (1 - Math.exp(-k * dt));
+      } else {
+        carState.steerInput += (steerRaw - carState.steerInput) * (1 - Math.exp(-9 * dt));
+      }
+      const steerIn = carState.steerInput;
+
+      setBodyAxes(carState.heading);
+
+      let fwdVel = carState.velocity.dot(_forward);
+      let latVel = carState.velocity.dot(_right);
+
+      // Shift timer counts down — during a shift, throttle is cut (the "punch" feel)
+      if (carState.shiftTimer > 0) {
+        carState.shiftTimer = Math.max(0, carState.shiftTimer - dt);
+        if (carState.shiftTimer === 0) carState.shiftDirection = 0;
+      }
+      const shifting = carState.shiftTimer > 0;
+
+      // Gear-aware acceleration — lower gear = more wheel torque = harder pull.
+      // Multiplier is the current gear ratio normalized so gear 3 (~mid) ≈ 1.0x
+      const gearMul = GEAR_RATIOS[carState.gear - 1] / GEAR_RATIOS[2];
+      // Near redline, torque drops off (you're past the powerband)
+      const rpmFracForTorque = Math.max(0, Math.min(1, (carState.rpm - RPM_IDLE) / (RPM_REDLINE - RPM_IDLE)));
+      const torqueCurve = rpmFracForTorque < 0.85
+        ? 0.55 + rpmFracForTorque * 0.65          // climbs through powerband
+        : 1.20 - (rpmFracForTorque - 0.85) * 1.8; // falls off past 0.85 redline
+      const effectiveAccel = ACCEL * gearMul * Math.max(0.35, torqueCurve);
+
+      if (throttle && !shifting) {
+        fwdVel += effectiveAccel * dt;
+      } else if (brake) {
+        if (fwdVel > 0.5) fwdVel -= BRAKE_FORCE * dt;
+        else fwdVel -= REVERSE_ACCEL * dt;
+      } else {
+        const drag = COAST_DRAG_FORWARD * dt;
+        if (fwdVel > 0) fwdVel = Math.max(0, fwdVel - drag);
+        else if (fwdVel < 0) fwdVel = Math.min(0, fwdVel + drag);
+      }
+      fwdVel = Math.max(MAX_REVERSE, Math.min(MAX_FORWARD, fwdVel));
+
+      // ------------------------------------------------------------------
+      // SPEED-DEPENDENT GRIP — real cars can't corner at 200 km/h on tight roads.
+      // Cornering force scales as v²/r, so the effective grip envelope falls
+      // off with speed. Trying to corner too fast → natural understeer/slide.
+      // ------------------------------------------------------------------
+      // At low speed (≤22 m/s, ~80 km/h): full grip.
+      // From there it falls off so by 50 m/s (~180 km/h) grip is ~55%.
+      const speedNow = Math.hypot(fwdVel, latVel);
+      const gripFalloff = THREE.MathUtils.clamp(1.0 - Math.max(0, speedNow - 22) * 0.018, 0.45, 1.0);
+      const grip = (handbrake ? GRIP_HANDBRAKE : GRIP_NORMAL) * gripFalloff;
+      latVel *= Math.exp(-grip * dt);
+
+      // Drift detection (preliminary — used for snap assist)
+      const preDriftAngle = Math.atan2(Math.abs(latVel), Math.max(1, Math.abs(fwdVel)));
+      const preSpeed = Math.hypot(fwdVel, latVel);
+      const isDrifting = preDriftAngle > 0.35 && preSpeed > 8;
+
+      // ------------------------------------------------------------------
+      // ROAD-SNAP ASSIST — Asphalt-style, safe edition.
+      // Two operations, both always toward stability — never amplifying:
+      //   1. Gently rotate heading toward the road tangent.
+      //   2. Damp the component of velocity perpendicular to the road.
+      // Damping can only REDUCE lateral motion, never amplify or flip it.
+      // This avoids the slingshot/sideways-fling bugs from earlier attempts.
+      //
+      // Target tangent is smoothed frame-to-frame so sudden nearest-point
+      // jumps (when the road curves near itself) can't yank the car.
+      // ------------------------------------------------------------------
+      const handbrakeCommit = handbrake && preSpeed > 8;
+      const wantAssist = isDrifting || handbrakeCommit;
+
+      if (wantAssist && ROAD_POINTS.length) {
+        const near = nearestRoadPointAligned(
+          carState.position.x, carState.position.z,
+          _forward.x, _forward.z,
+          70
+        );
+        if (near.idx >= 0) {
+          const roadP = ROAD_POINTS[near.idx];
+          const { t: roadTan, p: roadPerp } = tanPerpAt(near.idx);
+          if (roadTan && roadP) {
+            const offX = carState.position.x - roadP.x;
+            const offZ = carState.position.z - roadP.z;
+            const lateralOffset = offX * roadPerp.x + offZ * roadPerp.z;
+            const absOff = Math.abs(lateralOffset);
+
+            // Off-road kill switch — assist fades out past the road edge
+            const onRoadFactor = THREE.MathUtils.clamp(
+              1 - (absOff - ROAD_HALF) / 6,
+              0, 1
+            );
+
+            if (onRoadFactor > 0) {
+              // Smooth the target tangent across frames so sudden jumps in the
+              // "nearest road point" don't cause velocity slingshots.
+              const tanHeading = Math.atan2(roadTan.x, roadTan.z);
+              if (assistTangentSmoothed === null) {
+                assistTangentSmoothed = tanHeading;
+              } else {
+                // Smooth via shortest angle
+                const dT = angleDelta(tanHeading, assistTangentSmoothed);
+                // Reject huge jumps (>90°): keep previous, don't follow
+                if (Math.abs(dT) < Math.PI / 2) {
+                  assistTangentSmoothed += dT * (1 - Math.exp(-6 * dt));
+                } else {
+                  // Big jump means the assist grabbed a different segment — reset
+                  assistTangentSmoothed = tanHeading;
+                }
+              }
+              const safeTanHeading = assistTangentSmoothed;
+
+              // -- HEADING ROTATION (gentle) --
+              const dH = angleDelta(safeTanHeading, carState.heading);
+              // Only rotate heading if we're within ±60° of the target — don't try
+              // to spin the car 180° if something is weird
+              if (Math.abs(dH) < Math.PI * 0.6) {
+                const headingK = 2.4 * onRoadFactor;
+                carState.heading += dH * (1 - Math.exp(-headingK * dt));
+              }
+
+              // -- LATERAL VELOCITY DAMPING (safe) --
+              // Decompose world velocity into (along road tangent, perp to road).
+              // Damp the perpendicular component. This can never amplify or flip
+              // velocity — it only ever reduces sideways motion.
+              const vWorldX = _forward.x * fwdVel + _right.x * latVel;
+              const vWorldZ = _forward.z * fwdVel + _right.z * latVel;
+              const tx = Math.sin(safeTanHeading), tz = Math.cos(safeTanHeading);
+              const px = -tz, pz = tx; // perpendicular to tangent
+              const vAlongTan = vWorldX * tx + vWorldZ * tz;
+              const vPerpToRoad = vWorldX * px + vWorldZ * pz;
+
+              // Damp the perpendicular component, but only if it's pointing AWAY
+              // from the road centerline (i.e. dragging the car off). Don't damp
+              // if it's pointing toward the centerline (recovery is OK).
+              const perpAwayFromCenter = (Math.sign(lateralOffset) === Math.sign(vPerpToRoad)) ? 1 : 0;
+              const dampedPerp = perpAwayFromCenter
+                ? vPerpToRoad * Math.exp(-2.5 * onRoadFactor * dt)
+                : vPerpToRoad;
+
+              // Reconstruct world velocity from (along, perp) in road frame
+              const newVx = vAlongTan * tx + dampedPerp * px;
+              const newVz = vAlongTan * tz + dampedPerp * pz;
+
+              // Convert back to car frame using current (post-heading-update) body axes
+              setBodyAxes(carState.heading);
+              fwdVel = newVx * _forward.x + newVz * _forward.z;
+              latVel = newVx * _right.x + newVz * _right.z;
+            }
+          }
+        } else {
+          assistTangentSmoothed = null; // reset when no road found
+        }
+      } else {
+        assistTangentSmoothed = null; // reset when assist disengages
+      }
+      // ------------------------------------------------------------------
+
+      setBodyAxes(carState.heading); // refresh after snap
+      carState.velocity.copy(_forward).multiplyScalar(fwdVel).addScaledVector(_right, latVel);
+
+      const speedAbs = Math.abs(fwdVel) + Math.abs(latVel) * 0.4;
+      const speedFactor = Math.max(STEER_FACTOR_MIN, Math.min(1.0, speedAbs / 12));
+      const moveSign = fwdVel >= 0 ? 1 : -1;
+      carState.heading += steerIn * STEER_RATE * speedFactor * dt * moveSign;
+
+      const targetSteer = steerIn * 0.5;
+      carState.steerAngle += (targetSteer - carState.steerAngle) * Math.min(1, dt * 9);
+
+      carState.position.addScaledVector(carState.velocity, dt);
+
+      // Gear + RPM
+      const wheelRpm = (Math.abs(fwdVel) / (2 * Math.PI * WHEEL_RADIUS)) * 60;
+      let targetRpm = wheelRpm * FINAL_DRIVE * GEAR_RATIOS[carState.gear - 1];
+
+      // Upshift on redline
+      if (targetRpm > RPM_SHIFT_UP && carState.gear < GEAR_RATIOS.length && !shifting) {
+        carState.gear++;
+        carState.shiftTimer = SHIFT_DURATION;
+        carState.shiftDirection = 1;
+        targetRpm = wheelRpm * FINAL_DRIVE * GEAR_RATIOS[carState.gear - 1];
+      }
+      // Downshift — happens early now (4500 rpm). When braking hard, we also
+      // aggressively pre-downshift to keep RPM in the powerband for the exit.
+      else if (carState.gear > 1 && !shifting) {
+        const brakeForceDown = brake && carState.gear > 2;
+        const downshiftThreshold = brakeForceDown ? 5800 : RPM_SHIFT_DOWN;
+        if (targetRpm < downshiftThreshold) {
+          carState.gear--;
+          carState.shiftTimer = SHIFT_DURATION * 0.7;
+          carState.shiftDirection = -1;
+          targetRpm = wheelRpm * FINAL_DRIVE * GEAR_RATIOS[carState.gear - 1];
+        }
+      }
+
+      if (throttle && targetRpm < 2200) targetRpm = 2200 + Math.random() * 200;
+      targetRpm = Math.max(RPM_IDLE, Math.min(RPM_REDLINE, targetRpm));
+      const rpmK = shifting ? 15 : 7;
+      carState.rpm += (targetRpm - carState.rpm) * (1 - Math.exp(-rpmK * dt));
+
+      const finalDriftAngle = Math.atan2(Math.abs(latVel), Math.max(1, Math.abs(fwdVel)));
+      const speed = carState.velocity.length();
+      const finalDrift = finalDriftAngle > 0.35 && speed > 8;
+      if (finalDrift) carState.driftTime += dt;
+      else carState.driftTime = Math.max(0, carState.driftTime - dt * 1.8);
+
+      return {
+        fwdVel, latVel, speed, isDrifting: finalDrift, throttle, brake, handbrake,
+        driftAngle: finalDriftAngle
+      };
+    }
+
+    // ====================================================================
+    //  AUDIO — engine via cylinder firing pulses + exhaust resonator.
+    //  Skid via high-band noise with rapid AM modulation (the "skreee" stutter).
+    // ====================================================================
+    const audio = {
+      ctx: null, master: null, started: false,
+      engine: null, skid: null,
+    };
+
+    // ENGINE_CYLINDERS is per-car, set by applyCar() above
+
+    function initAudio() {
+      if (audio.started) return;
+      audio.started = true;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audio.ctx = new AC();
+      audio.master = audio.ctx.createGain();
+      audio.master.gain.value = 0.55;
+      audio.master.connect(audio.ctx.destination);
+
+      const sr = audio.ctx.sampleRate;
+
+      // ----- ENGINE PULSE TRAIN -----
+      // Real engines fire cylinders at (RPM * cylinders) / 120 Hz.
+      // We synthesize a stream of short impulses, then filter through a
+      // tuned resonator (modeling the exhaust pipe). This is what gives
+      // engines their characteristic rumble — pure tones sound alien.
+      const PULSE_BASE_HZ = 100;
+      const PULSE_PERIOD_SAMPLES = Math.round(sr / PULSE_BASE_HZ);
+      const PULSE_BUFFER_LEN = PULSE_PERIOD_SAMPLES * 8;
+      const pulseBuf = audio.ctx.createBuffer(1, PULSE_BUFFER_LEN, sr);
+      {
+        const d = pulseBuf.getChannelData(0);
+        for (let p = 0; p < 8; p++) {
+          const offset = p * PULSE_PERIOD_SAMPLES;
+          // Slight per-firing variation so it doesn't sound mechanical
+          const amp = 0.85 + Math.random() * 0.15;
+          for (let i = 0; i < PULSE_PERIOD_SAMPLES; i++) {
+            const t = i / PULSE_PERIOD_SAMPLES;
+            const env = Math.exp(-t * 25) * amp;
+            d[offset + i] = env * (1 + 0.4 * Math.sin(t * 80)) - 0.3 * env;
+          }
+        }
+      }
+      const pulse = audio.ctx.createBufferSource();
+      pulse.buffer = pulseBuf; pulse.loop = true; pulse.start();
+
+      // Resonators — model the exhaust pipe + chamber resonances
+      const reso1 = audio.ctx.createBiquadFilter();
+      reso1.type = 'bandpass'; reso1.frequency.value = 220; reso1.Q.value = 8;
+      const reso2 = audio.ctx.createBiquadFilter();
+      reso2.type = 'peaking'; reso2.frequency.value = 600; reso2.Q.value = 3; reso2.gain.value = 6;
+      const lp = audio.ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 2200; lp.Q.value = 0.7;
+
+      const engineGain = audio.ctx.createGain();
+      engineGain.gain.value = 0.0;
+
+      pulse.connect(reso1);
+      reso1.connect(reso2);
+      reso2.connect(lp);
+      lp.connect(engineGain);
+      engineGain.connect(audio.master);
+
+      // ----- INTAKE / TURBULENCE -----
+      // Adds the "roar" under heavy throttle
+      const intakeBuf = audio.ctx.createBuffer(1, sr * 2, sr);
+      {
+        const d = intakeBuf.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < d.length; i++) {
+          const w = Math.random() * 2 - 1;
+          last = 0.85 * last + 0.15 * w; // brownish
+          d[i] = last * 2.2;
+        }
+      }
+      const intake = audio.ctx.createBufferSource();
+      intake.buffer = intakeBuf; intake.loop = true; intake.start();
+      const intakeFilt = audio.ctx.createBiquadFilter();
+      intakeFilt.type = 'bandpass'; intakeFilt.frequency.value = 350; intakeFilt.Q.value = 1.4;
+      const intakeGain = audio.ctx.createGain();
+      intakeGain.gain.value = 0;
+      intake.connect(intakeFilt);
+      intakeFilt.connect(intakeGain);
+      intakeGain.connect(audio.master);
+
+      audio.engine = {
+        pulse, reso1, reso2, lp, gain: engineGain,
+        intake, intakeFilt, intakeGain,
+        PULSE_BASE_HZ,
+      };
+
+      // ----- SKID / TIRE SCREECH -----
+      // High bandpass + an LFO that modulates amplitude rapidly (~22 Hz).
+      // The AM gives the "skreee-skreee" stutter that distinguishes screech
+      // from smooth hiss (which sounds like sand or wind).
+      const skidNoiseBuf = audio.ctx.createBuffer(1, sr * 2, sr);
+      {
+        const d = skidNoiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const skidNoise = audio.ctx.createBufferSource();
+      skidNoise.buffer = skidNoiseBuf; skidNoise.loop = true; skidNoise.start();
+
+      const skidHP = audio.ctx.createBiquadFilter();
+      skidHP.type = 'highpass'; skidHP.frequency.value = 1800; skidHP.Q.value = 0.7;
+      const skidBP = audio.ctx.createBiquadFilter();
+      skidBP.type = 'bandpass'; skidBP.frequency.value = 3000; skidBP.Q.value = 4;
+      const skidPK = audio.ctx.createBiquadFilter();
+      skidPK.type = 'peaking'; skidPK.frequency.value = 4500; skidPK.Q.value = 3.5; skidPK.gain.value = 14;
+
+      const skidLFO = audio.ctx.createOscillator();
+      skidLFO.type = 'sine'; skidLFO.frequency.value = 22;
+      const skidLFOGain = audio.ctx.createGain();
+      skidLFOGain.gain.value = 0;
+
+      const skidGain = audio.ctx.createGain();
+      skidGain.gain.value = 0.0;
+
+      skidLFO.connect(skidLFOGain);
+      skidLFOGain.connect(skidGain.gain); // LFO adds to base gain → AM modulation
+      skidLFO.start();
+
+      skidNoise.connect(skidHP);
+      skidHP.connect(skidBP);
+      skidBP.connect(skidPK);
+      skidPK.connect(skidGain);
+      skidGain.connect(audio.master);
+
+      audio.skid = { source: skidNoise, gain: skidGain, lfo: skidLFO, lfoGain: skidLFOGain };
+    }
+
+    // Short percussive "thunk" for each gear shift.
+    function playShiftThunk(direction) {
+      if (!audio.started || !audio.ctx) return;
+      const ctx = audio.ctx;
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      const startFreq = direction > 0 ? 160 : 110;
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(startFreq * 0.45, now + 0.18);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0, now);
+      gain.gain.linearRampToValueAtTime(0.35, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(gain);
+      gain.connect(audio.master);
+      osc.start(now);
+      osc.stop(now + 0.25);
+
+      const sr = ctx.sampleRate;
+      const buf = ctx.createBuffer(1, Math.floor(sr * 0.06), sr);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) {
+        const t = i / d.length;
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 18);
+      }
+      const click = ctx.createBufferSource();
+      click.buffer = buf;
+      const clickFilt = ctx.createBiquadFilter();
+      clickFilt.type = 'bandpass';
+      clickFilt.frequency.value = direction > 0 ? 2400 : 1400;
+      clickFilt.Q.value = 1.5;
+      const clickGain = ctx.createGain();
+      clickGain.gain.value = direction > 0 ? 0.18 : 0.12;
+      click.connect(clickFilt);
+      clickFilt.connect(clickGain);
+      clickGain.connect(audio.master);
+      click.start(now);
+    }
+
+    function updateAudio(dt, phys) {
+      if (!audio.started || !audio.ctx) return;
+      const now = audio.ctx.currentTime;
+
+      // Engine pulse rate = (RPM × cylinders) / 120 Hz
+      const firingHz = (carState.rpm * ENGINE_CYLINDERS) / 120;
+      const targetRate = firingHz / audio.engine.PULSE_BASE_HZ;
+      audio.engine.pulse.playbackRate.setTargetAtTime(targetRate, now, 0.04);
+
+      const rpmFrac = Math.max(0, Math.min(1, (carState.rpm - RPM_IDLE) / (RPM_REDLINE - RPM_IDLE)));
+
+      // Brightening character with RPM
+      audio.engine.reso1.frequency.setTargetAtTime(180 + rpmFrac * 280, now, 0.05);
+      audio.engine.reso2.frequency.setTargetAtTime(550 + rpmFrac * 700, now, 0.06);
+      audio.engine.lp.frequency.setTargetAtTime(1400 + rpmFrac * 3000, now, 0.08);
+
+      // Engine gain — throttle gives the engaged "growl"
+      const throttleBonus = phys.throttle ? 0.18 : 0;
+      let targetEngineGain = 0.20 + rpmFrac * 0.35 + throttleBonus;
+
+      // Power cut during shift — quick dip (clutch out feel)
+      if (carState.shiftTimer > 0) targetEngineGain *= 0.35;
+      audio.engine.gain.gain.setTargetAtTime(targetEngineGain, now, 0.05);
+
+      // Intake roar
+      const intakeTarget = phys.throttle ? rpmFrac * 0.18 : rpmFrac * 0.04;
+      audio.engine.intakeGain.gain.setTargetAtTime(intakeTarget, now, 0.08);
+      audio.engine.intakeFilt.frequency.setTargetAtTime(280 + rpmFrac * 600, now, 0.08);
+
+      // ----- SKID -----
+      const handbrakeAtSpeed = keys.Space && phys.speed > 6;
+      let skidTarget = 0;
+      if (phys.isDrifting) {
+        const intensity = Math.min(1, (phys.driftAngle - 0.35) / 0.6);
+        skidTarget = 0.32 + intensity * 0.50;
+      } else if (handbrakeAtSpeed) {
+        skidTarget = 0.22;
+      }
+      // LFO modulates skidGain so the noise stutters at ~22 Hz instead of a flat hiss.
+      // Base gain is half the target; LFO swings 0 → target.
+      audio.skid.lfoGain.gain.setTargetAtTime(skidTarget * 0.5, now, 0.04);
+      audio.skid.gain.gain.setTargetAtTime(skidTarget * 0.5, now, skidTarget > 0 ? 0.04 : 0.18);
+      audio.skid.lfo.frequency.setTargetAtTime(18 + skidTarget * 12, now, 0.1);
+    }
+
+    // ====================================================================
+    //  TIRE SMOKE
+    // ====================================================================
+    const SMOKE_MAX = 380;
+    const smokePool = [];
+    const smokeActive = [];
+    const smokeGeo = new THREE.SphereGeometry(0.32, 6, 6);
+
+    function smokeGet() {
+      if (smokePool.length) return smokePool.pop();
+      return new THREE.Mesh(
+        smokeGeo,
+        new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false })
+      );
+    }
+    function spawnSmoke(pos, intensity) {
+      if (smokeActive.length >= SMOKE_MAX) return;
+      const m = smokeGet();
+      m.position.copy(pos);
+      m.position.x += (Math.random() - 0.5) * 0.4;
+      m.position.z += (Math.random() - 0.5) * 0.4;
+      m.material.color.setHSL(0.08, 0.25, 0.78 + Math.random() * 0.1);
+      m.material.opacity = 0.55 + intensity * 0.25;
+      const life = 1.2 + Math.random() * 0.8;
+      m.userData.life = life;
+      m.userData.maxLife = life;
+      m.userData.vy = 0.35 + Math.random() * 0.5;
+      m.userData.vx = (Math.random() - 0.5) * 0.8;
+      m.userData.vz = (Math.random() - 0.5) * 0.8;
+      m.userData.scale0 = 0.45 + Math.random() * 0.25;
+      m.scale.setScalar(m.userData.scale0);
+      scene.add(m);
+      smokeActive.push(m);
+    }
+    function updateSmoke(dt) {
+      for (let i = smokeActive.length - 1; i >= 0; i--) {
+        const p = smokeActive[i];
+        p.userData.life -= dt;
+        if (p.userData.life <= 0) {
+          scene.remove(p);
+          smokeActive.splice(i, 1);
+          smokePool.push(p);
+          continue;
+        }
+        p.position.x += p.userData.vx * dt;
+        p.position.y += p.userData.vy * dt;
+        p.position.z += p.userData.vz * dt;
+        p.userData.vy *= 0.96;
+        p.userData.vx *= 0.94;
+        p.userData.vz *= 0.94;
+        const t = p.userData.life / p.userData.maxLife;
+        p.material.opacity = t * 0.7;
+        p.scale.setScalar(p.userData.scale0 * (1 + (1 - t) * 2.4));
+      }
+    }
+
+    // ====================================================================
+    //  CAMERA
+    // ====================================================================
+    const VIEW_MODES = ['CHASE', 'HOOD', 'CINEMATIC'];
+    let viewIndex = 0;
+    function cycleView() { viewIndex = (viewIndex + 1) % VIEW_MODES.length; }
+
+    const _tmpPos = new THREE.Vector3();
+    const _tmpLook = new THREE.Vector3();
+
+    function computeViewCam(mode, phys) {
+      setBodyAxes(carState.heading);
+      const cp = carState.position;
+      switch (mode) {
+        case 'CHASE': {
+          // Distance/height interpolate with speed:
+          // At 0 km/h: 4.5m back, 2.8m up — chill cinematic
+          // At top speed: 2.6m back, 2.0m up — visceral closeup
+          // FOV stays constant so the car visibly GROWS as speed increases.
+          const speedFrac = Math.min(1, phys ? phys.speed / MAX_FORWARD : 0);
+          const behind = 4.5 - speedFrac * 1.9;
+          const above = 2.8 - speedFrac * 0.8;
+          const lookAhead = 1.5 - speedFrac * 0.6;
+          const lookUp = 1.1 - speedFrac * 0.4;
+          _tmpPos.set(cp.x - _forward.x * behind, cp.y + above, cp.z - _forward.z * behind);
+          _tmpLook.set(cp.x + _forward.x * lookAhead, cp.y + lookUp, cp.z + _forward.z * lookAhead);
+          return { pos: _tmpPos.clone(), look: _tmpLook.clone(), fov: 68, fovSpeedAdd: 0 };
+        }
+        case 'HOOD': {
+          const front = 1.6, height = 0.95;
+          _tmpPos.set(cp.x + _forward.x * front, cp.y + height, cp.z + _forward.z * front);
+          _tmpLook.set(cp.x + _forward.x * 30, cp.y + 1.5, cp.z + _forward.z * 30);
+          return { pos: _tmpPos.clone(), look: _tmpLook.clone(), fov: 75, fovSpeedAdd: 10 };
+        }
+        case 'CINEMATIC': {
+          const behind = 16, above = 2.6, sideOff = 5;
+          _tmpPos.set(
+            cp.x - _forward.x * behind + _right.x * sideOff,
+            cp.y + above,
+            cp.z - _forward.z * behind + _right.z * sideOff
+          );
+          _tmpLook.set(cp.x, cp.y + 0.9, cp.z);
+          return { pos: _tmpPos.clone(), look: _tmpLook.clone(), fov: 50, fovSpeedAdd: 7 };
+        }
+      }
+    }
+
+    let lockedDriftSide = 1;
+    function computeDriftCam() {
+      setBodyAxes(carState.heading);
+      const cp = carState.position;
+      const sideOff = 4.5 * lockedDriftSide;
+      const back = 6.5;
+      const height = 1.55;
+      _tmpPos.set(
+        cp.x + _right.x * sideOff - _forward.x * back,
+        cp.y + height,
+        cp.z + _right.z * sideOff - _forward.z * back
+      );
+      _tmpLook.set(cp.x - _forward.x * 0.2, cp.y + 0.6, cp.z - _forward.z * 0.2);
+      return { pos: _tmpPos.clone(), look: _tmpLook.clone(), fov: 50 };
+    }
+
+    const camPos = new THREE.Vector3(0, 4.5, -9);
+    const camLook = new THREE.Vector3();
+    let driftWeight = 0;
+    camera.position.copy(camPos);
+
+    function updateCamera(dt, phys) {
+      const wantsDrift = phys.isDrifting && carState.driftTime > 0.25;
+      const target = wantsDrift ? 1 : 0;
+
+      if (target === 1 && driftWeight < 0.15) {
+        const s = Math.sign(phys.latVel);
+        if (s !== 0) lockedDriftSide = -s;
+      }
+
+      const k = target > driftWeight
+        ? (1 - Math.exp(-7.5 * dt))
+        : (1 - Math.exp(-2.8 * dt));
+      driftWeight += (target - driftWeight) * k;
+
+      const v = computeViewCam(VIEW_MODES[viewIndex], phys);
+      const d = computeDriftCam();
+      const pos = v.pos.lerp(d.pos, driftWeight);
+      const look = v.look.lerp(d.look, driftWeight);
+
+      const followK = 1 - Math.exp(-3.8 * dt);
+      camPos.lerp(pos, followK);
+      const lookK = 1 - Math.exp(-5.5 * dt);
+      camLook.lerp(look, lookK);
+      camera.position.copy(camPos);
+      camera.lookAt(camLook);
+
+      const speedFrac = Math.min(1, phys.speed / MAX_FORWARD);
+      const vFov = v.fov + v.fovSpeedAdd * speedFrac;
+      const targetFov = vFov * (1 - driftWeight) + d.fov * driftWeight;
+      const fovK = 1 - Math.exp(-6 * dt);
+      camera.fov += (targetFov - camera.fov) * fovK;
+      camera.updateProjectionMatrix();
+
+      const vm = document.getElementById('viewMode');
+      if (driftWeight > 0.35) {
+        vm.classList.add('drift');
+        vm.textContent = 'drift cam';
+      } else {
+        vm.classList.remove('drift');
+        vm.textContent = VIEW_MODES[viewIndex].toLowerCase() + ' cam';
+      }
+    }
+
+    // ====================================================================
+    //  CAR VISUAL + HUD
+    // ====================================================================
+    const speedHud = document.getElementById('speed');
+    const driftHud = document.getElementById('drift');
+    const comboHud = document.getElementById('combo');
+    const gearHud = document.getElementById('gear');
+    const rpmBar = document.getElementById('rpmBar');
+    const shiftFlash = document.getElementById('shiftFlash');
+    audioHintEl = document.getElementById('audioHint');
+    // Don't show the audio hint — the menu replaces it
+    // setTimeout(() => audioHintEl && audioHintEl.classList.add('show'), 900);
+
+    // === CAR SELECT MENU ===
+    const menuEl = document.getElementById('menu');
+    const carRowEl = document.getElementById('carRow');
+    const menuStartBtn = document.getElementById('menuStart');
+    let menuSelectedIdx = 0;
+    let gameStarted = false;
+
+    function hexToCss(h) {
+      return '#' + h.toString(16).padStart(6, '0');
+    }
+
+    function buildMenuCards() {
+      carRowEl.innerHTML = '';
+      CARS.forEach((car, idx) => {
+        const card = document.createElement('div');
+        card.className = 'carCard';
+        if (idx === menuSelectedIdx) card.classList.add('selected');
+        card.dataset.idx = idx;
+        // Top speed estimate (km/h): maxForward * 3.6
+        const topKph = Math.round(car.maxForward * 3.6);
+        card.innerHTML = `
+      <div class="carSwatch" style="background:${hexToCss(car.color)}"></div>
+      <div class="carName">${car.name}</div>
+      <div class="carInspired">inspired · ${car.inspiration}</div>
+      <div class="carTagline">${car.tagline}</div>
+      <div class="carStats">
+        <div class="carStat"><span>top</span><span class="val">${topKph} km/h</span></div>
+        <div class="carStat"><span>gears</span><span class="val">${car.gearRatios.length}</span></div>
+        <div class="carStat"><span>redline</span><span class="val">${car.rpmRedline}</span></div>
+        <div class="carStat"><span>engine</span><span class="val">${car.cylinders}-cyl</span></div>
+      </div>
+    `;
+        card.addEventListener('click', () => {
+          menuSelectedIdx = idx;
+          updateMenuSelection();
+        });
+        card.addEventListener('dblclick', startGame);
+        carRowEl.appendChild(card);
+      });
+    }
+
+    function updateMenuSelection() {
+      const cards = carRowEl.querySelectorAll('.carCard');
+      cards.forEach((c, i) => {
+        c.classList.toggle('selected', i === menuSelectedIdx);
+      });
+    }
+
+    function startGame() {
+      if (gameStarted) return;
+      gameStarted = true;
+      initAudio(); // user gesture happened, safe to start audio
+      applyCar(CARS[menuSelectedIdx]);
+      menuEl.classList.add('hidden');
+    }
+
+    menuStartBtn.addEventListener('click', startGame);
+
+    // Menu keyboard nav (only while menu is up)
+    addEventListener('keydown', e => {
+      if (gameStarted) return;
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        menuSelectedIdx = (menuSelectedIdx - 1 + CARS.length) % CARS.length;
+        updateMenuSelection();
+        e.preventDefault();
+      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        menuSelectedIdx = (menuSelectedIdx + 1) % CARS.length;
+        updateMenuSelection();
+        e.preventDefault();
+      } else if (e.code === 'Enter' || e.code === 'Space') {
+        startGame();
+        e.preventDefault();
+      }
+    });
+
+    buildMenuCards();
+    // Apply default car so colors/HUD show correctly even before menu confirm
+    applyCar(CARS[0]);
+
+    // Position the upshift tick: where on the rev bar does the auto-shift happen?
+    {
+      const upshiftFrac = (RPM_SHIFT_UP - RPM_IDLE) / (RPM_REDLINE - RPM_IDLE);
+      const tick = document.getElementById('upshiftTick');
+      if (tick) tick.style.left = (upshiftFrac * 100).toFixed(1) + '%';
+    }
+
+    // Track gear changes for HUD flash + shift "thunk" audio cue
+    let prevGear = carState.gear;
+    let shiftFlashHideAt = 0;
+
+    function triggerShiftFlash(direction) {
+      if (!shiftFlash) return;
+      shiftFlash.textContent = direction > 0 ? '▲ UP' : '▼ DOWN';
+      shiftFlash.classList.remove('up', 'down');
+      // reflow trick so the animation re-triggers
+      void shiftFlash.offsetWidth;
+      shiftFlash.classList.add(direction > 0 ? 'up' : 'down');
+      shiftFlashHideAt = performance.now() + 280;
+      gearHud.classList.add('shifting');
+      setTimeout(() => gearHud.classList.remove('shifting'), 200);
+    }
+
+    function updateCarVisual(dt, fwdVel) {
+      car.position.copy(carState.position);
+      car.rotation.y = carState.heading;
+      const spin = fwdVel / 0.42 * dt;
+      car.userData.wheels.forEach(p => {
+        p.userData.wheel.rotation.x += spin;
+        if (p.userData.isFront) p.rotation.y = carState.steerAngle;
+      });
+      const inHood = VIEW_MODES[viewIndex] === 'HOOD' && driftWeight < 0.4;
+      car.visible = !inHood;
+    }
+
+    function updateHUD(speed, isDrifting) {
+      speedHud.textContent = Math.round(speed * 3.6);
+      if (isDrifting && carState.driftTime > 0.25) {
+        driftHud.classList.add('active');
+        comboHud.textContent = carState.driftTime.toFixed(1) + 's';
+      } else {
+        driftHud.classList.remove('active');
+      }
+
+      // Gear change detection — fires the visual flash + audio thunk
+      if (carState.gear !== prevGear) {
+        const dir = carState.gear > prevGear ? 1 : -1;
+        triggerShiftFlash(dir);
+        playShiftThunk(dir);
+        prevGear = carState.gear;
+      }
+      // Hide shift flash after its timer
+      if (shiftFlashHideAt && performance.now() > shiftFlashHideAt) {
+        shiftFlash.classList.remove('up', 'down');
+        shiftFlashHideAt = 0;
+      }
+
+      gearHud.textContent = 'G' + carState.gear;
+      const frac = Math.min(1, Math.max(0, (carState.rpm - RPM_IDLE) / (RPM_REDLINE - RPM_IDLE)));
+      rpmBar.style.width = (frac * 100).toFixed(1) + '%';
+      if (carState.shiftTimer > 0) {
+        // Dim/desaturate the bar during a shift — visual cue of clutch disengage
+        rpmBar.style.background = 'linear-gradient(90deg, #b08560, #806050)';
+      } else if (frac > 0.88) {
+        rpmBar.style.background = 'linear-gradient(90deg, #ffb070, #ff5050)';
+      } else {
+        rpmBar.style.background = 'linear-gradient(90deg, #ffd5a0, #ffb070)';
+      }
+    }
+
+    // ====================================================================
+    //  MAIN LOOP
+    // ====================================================================
+    let lastTime = performance.now();
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      const phys = updatePhysics(dt);
+      updateCarVisual(dt, phys.fwdVel);
+
+      // Smoke during real drifts or handbrake-at-speed
+      const handbrakeAtSpeed = keys.Space && phys.speed > 6;
+      if (phys.isDrifting || handbrakeAtSpeed) {
+        const latI = Math.min(1, Math.abs(phys.latVel) / 9);
+        const intensity = Math.max(latI, handbrakeAtSpeed ? 0.45 : 0);
+        if (Math.random() < intensity * 32 * dt) {
+          setBodyAxes(carState.heading);
+          [-0.95, 0.95].forEach(xOff => {
+            const wp = carState.position.clone()
+              .addScaledVector(_right, xOff)
+              .addScaledVector(_forward, -1.35);
+            wp.y = 0.25;
+            spawnSmoke(wp, intensity);
+          });
+        }
+      }
+
+      updateSmoke(dt);
+      updateCamera(dt, phys);
+      updateHUD(phys.speed, phys.isDrifting);
+      updateAudio(dt, phys);
+      streamRoad();
+
+      // Respawn-when-lost: if the car is far from the road for a sustained
+      // period, gently teleport it back. Brief excursions (wide drifts off
+      // the shoulder) are tolerated thanks to the hold timer.
+      {
+        const roadP = ROAD_POINTS[carRoadIdx];
+        if (roadP) {
+          const dx = carState.position.x - roadP.x;
+          const dz = carState.position.z - roadP.z;
+          const distFromRoad = Math.hypot(dx, dz);
+          if (distFromRoad > RESPAWN_DISTANCE) {
+            lostTimer += dt;
+            if (lostTimer >= RESPAWN_HOLD_TIME) attemptRespawn();
+          } else {
+            lostTimer = 0;
+          }
+        }
+      }
+
+      // Keep distant mountains "out there" — re-center around the car (XZ only)
+      mtnNear.position.set(carState.position.x, 0, carState.position.z);
+      mtnFar.position.set(carState.position.x, 0, carState.position.z);
+      // Keep sky and ground centered too
+      skyMesh.position.set(carState.position.x, 0, carState.position.z);
+      ground.position.set(carState.position.x, 0, carState.position.z);
+      // Sun stays "infinitely far away" — also re-center XZ
+      const sunOffset = new THREE.Vector3(-80, 30, -900);
+      sun.position.set(carState.position.x + sunOffset.x, sunOffset.y, carState.position.z + sunOffset.z);
+      sunGlow.position.copy(sun.position).add(new THREE.Vector3(0, 0, 1));
+
+      // Motion blur
+      const speedFrac = Math.min(1, phys.speed / MAX_FORWARD);
+      const blurTarget = Math.pow(speedFrac, 1.3) * 0.85;
+      const cur = radialBlurPass.uniforms.blurStrength.value;
+      radialBlurPass.uniforms.blurStrength.value = cur + (blurTarget - cur) * (1 - Math.exp(-3.5 * dt));
+
+      composer.render();
+    }
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setSize(innerWidth, innerHeight);
+    });
+
+    requestAnimationFrame(t => { lastTime = t; animate(t); });
+    setTimeout(() => document.getElementById('loading').classList.add('hidden'), 500);
+  </script>
+</body>
+
+</html>
